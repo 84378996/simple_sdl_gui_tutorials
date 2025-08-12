@@ -21,6 +21,7 @@ public:
 	bool IsPassword() const { return m_ispassword; }
 	void SetPassowrd(bool _password);
 
+	void DrawImgList() override;
 	inline void SetLength(int len) { m_length = len; }
 	inline int GetLength() const { return m_length; }
 	void SelectAll();
@@ -32,13 +33,13 @@ protected:
 	void setCursorPos(int x);
 	void clearSelection();
 	SDL_Rect calcCursorRect(int pos);
-	//SDL_Rect calcImeListRect();
-	//SDL_Rect calcImeListRect(const SDL_Rect& rcCursor);
+	SDL_Rect calcImeListRect();
+	SDL_Rect calcImeListRect(const SDL_Rect& rcCursor);
 	void removeCursorCharater();
 	void removeSelectedText();
 	void replaceSelectionText(const std::string& _utf8);
 	std::string getRectText() const;
-	std::string getDisplayText() const;
+	std::wstring getDisplayText() const;
 	bool isCursorRight() const;
 	bool isAllDigits(const std::string& str);
 	bool isAllDigits(const std::wstring& str);

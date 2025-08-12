@@ -68,3 +68,58 @@ std::string utf8_to_gbk(const std::string& utf8)
     std::wstring wstr = utf8_to_wstring(utf8);
     return wstring_to_gbk(wstr);
 }
+
+#pragma comment(lib, "imm32.lib")
+
+std::vector<std::wstring> GetCandidateList(void* hwnd) {
+	std::vector<std::wstring> candidates;
+	HIMC hIMC = ImmGetContext((HWND)hwnd);
+	if (hIMC) {
+		DWORD size = ImmGetCandidateListW(hIMC, 0, NULL, 0);
+		if (size > 0) {
+			LPCANDIDATELIST candList = (LPCANDIDATELIST)new char[size];
+			ImmGetCandidateListW(hIMC, 0, candList, size);
+			for (DWORD i = 0; i < candList->dwCount; i++) {
+				candidates.push_back(std::wstring((WCHAR*)((LPBYTE)candList + candList->dwOffset[i])));
+			}
+			delete[] candList;
+		}
+		ImmReleaseContext((HWND)hwnd, hIMC);
+	}
+	return candidates;
+}
+
+// 选择候选项
+void SelectCandidate(void* hwnd, int index) {
+	HIMC hIMC = ImmGetContext((HWND)hwnd);
+	if (hIMC) {
+		DWORD dwSize = ImmGetCandidateListW(hIMC, 0, NULL, 0);
+		LPCANDIDATELIST lpCandList = (LPCANDIDATELIST)new BYTE[dwSize];
+		if (ImmGetCandidateListW(hIMC, 0, lpCandList, dwSize)) {
+			if (index >= 0 && index < (int)lpCandList->dwCount) {
+				// 设置选择的候选项
+				ImmNotifyIME(hIMC, NI_SELECTCANDIDATESTR, 0, index);
+			}
+		}
+		delete[] lpCandList;
+		ImmReleaseContext((HWND)hwnd, hIMC);
+	}
+}
+
+// 获取当前选择的候选项索引
+int GetCurrentCandidateIndex(void* hwnd) {
+	int index = -1;
+
+	HIMC hIMC = ImmGetContext((HWND)hwnd);
+	if (hIMC) {
+		DWORD dwSize = ImmGetCandidateListW(hIMC, 0, NULL, 0);
+		LPCANDIDATELIST lpCandList = (LPCANDIDATELIST)new BYTE[dwSize];
+		if (ImmGetCandidateListW(hIMC, 0, lpCandList, dwSize)) {
+			index = lpCandList->dwSelection;
+		}
+		delete[] lpCandList;
+		ImmReleaseContext((HWND)hwnd, hIMC);
+	}
+
+	return index;
+}

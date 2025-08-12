@@ -44,13 +44,15 @@ public:
     void SetEnabled(bool enabled) override;
     void OnMouseOut() override;
 
+    virtual void DrawImgList() {};
+
     virtual void OnTextChanged(const std::string& oldText) {};
     virtual void OnFontSizeChanged(const int oldFontsize) {};
     virtual void OnFocusChanged() {};
 
 protected:
     std::string m_text;
-    int m_fontSize = 16;
+    int m_fontSize = 14;
     SDL_Color m_textColor = { 0, 0, 0, 255 };
     SDL_Color m_backgroundColor = { 255, 255, 255, 255 };
     UIState m_state = UIState::Normal;

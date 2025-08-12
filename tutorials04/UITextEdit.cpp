@@ -5,7 +5,7 @@
 
 
 static const char* _ALLOWPASSWORD = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890!@#$_-";
-//#define IME_SIZE SDL_min(IME_WAIT_SIZE, m_ims.size())
+#define IME_SIZE SDL_min(IME_WAIT_SIZE, m_ims.size())
 #define LINE_HEIGHT 20
 
 UITextEdit::UITextEdit()
@@ -146,19 +146,52 @@ bool UITextEdit::Handle(SDL_Event* e)
 			if (editing.index == -1)
 				editing.index = 0;
 
-			/*m_ims = GetCandidateList(wid);
+			m_ims = GetCandidateList(wid);
 			editing.index = GetCurrentCandidateIndex(wid);
 			if (editing.index >= (int)IME_SIZE)
 			{
 				editing.index = (int)IME_SIZE - 1;
 				SelectCandidate(wid, editing.index);
-			}*/
+			}
 		}
 	}
 	else if (e->type == SDL_KEYDOWN)
 	{
+		SDL_Keymod modState = SDL_GetModState();
+
 		switch (e->key.keysym.sym)
 		{
+		case SDLK_c:
+		{
+			if (modState & KMOD_CTRL)
+			{
+				auto str = GetSelectionText();
+				SDL_SetClipboardText(str.c_str());
+				return true;
+			}
+			break;
+		}
+		case SDLK_v:
+		{
+			if (modState & KMOD_CTRL)
+			{
+				auto str = SDL_GetClipboardText();
+				replaceSelectionText(str);
+				return true;
+			}
+			break;
+		}
+		case SDLK_x:
+		{
+			if (modState & KMOD_CTRL)
+			{
+				auto str = GetSelectionText();
+				SDL_SetClipboardText(str.c_str());
+				removeSelectedText();
+				return true;
+			}
+			break;
+		}
 		case SDLK_BACKSPACE:
 		{
 			if (!IsReadOnly())
@@ -192,7 +225,6 @@ bool UITextEdit::Handle(SDL_Event* e)
 					removeCursorCharater();
 				}
 			}
-			//fprintf(stderr, "textoffset: %d, curpos: %d\n", m_textoffset, cursor.position);
 		}
 		break;
 		case SDLK_LEFT:
@@ -203,7 +235,6 @@ bool UITextEdit::Handle(SDL_Event* e)
 			if (cursor.position > 0)
 				cursor.position--;
 
-			//fprintf(stderr, "textoffset: %d, curpos: %d\n", m_textoffset, cursor.position);
 		}
 		break;
 		case SDLK_RIGHT:
@@ -221,7 +252,6 @@ bool UITextEdit::Handle(SDL_Event* e)
 				if (cursor.position < (int)m_wtext.length())
 					cursor.position++;
 			}
-			//fprintf(stderr, "textoffset: %d, curpos: %d\n", m_textoffset, cursor.position);
 		}
 		break;
 		case SDLK_HOME:
@@ -246,6 +276,7 @@ void UITextEdit::OnTextChanged(const std::string& old)
 	m_wtext = utf8_to_wstring(m_text);
 	calcCharacterWidths();
 }
+
 
 void UITextEdit::OnMouseOver()
 {
@@ -298,12 +329,48 @@ void UITextEdit::SetPassowrd(bool _password)
 	}
 }
 
+void UITextEdit::DrawImgList()
+{
+	if (IsPassword()) return;
+	if (m_ims.size() <= 0) return;
+	SDL_Color bk{ 220,220,220,255 };
+	SDL_Color clr{ 0,0,0,255 };
+	SDL_Color csel{ 116,216,255,255 };
+	int imesize = (int)(IME_SIZE);
+	auto rc = calcCursorRect(cursor.position);
+	auto [cw, ch] = sRender->GetClientSize();
+	auto [w, h] = sRender->GetTextSize(wstring_to_utf8(m_ims[0]).c_str(), m_fontSize);
+	int x = rc.x;
+	int y = rc.y + rc.h;
+	if (y + h * 8 > ch)
+	{
+		auto rect = GetGlobalRect();
+		y = rect.y - (h + 4) * 8;
+	}
+
+	auto rcBK = SDL_Rect{ rc.x,y, 90, (h + 4) * imesize };
+	sRender->FillRect(rcBK, bk);
+
+	for (size_t i = 0; i < imesize; i++)
+	{
+		if (i == editing.index)
+		{
+			sRender->FillRect(SDL_Rect{ x,y,80, h + 4 }, csel);
+		}
+		SDL_Point pt{ x + 4,y + 2 };
+		char txt[64] = {};
+		sprintf_s(txt, "%d. %s", (int)i + 1, wstring_to_utf8(m_ims[i]).c_str());
+		sRender->DrawString(txt, m_fontSize, pt, clr);
+		y += (h + 4);
+	}
+}
+
 void UITextEdit::calcCharacterWidths()
 {
 	m_chw.clear();
 	if (IsPassword())
 	{
-		std::string utf8 = getDisplayText();
+		std::wstring utf8 = getDisplayText();
 		auto [w, h] = sRender->GetTextSize(utf8.c_str(), m_fontSize);
 		for (size_t i = 0; i < utf8.length(); i++)
 			m_chw.push_back(w / (int)utf8.length());
@@ -330,7 +397,7 @@ void UITextEdit::calcTextOffset()
 {
 	if (m_textoffset == cursor.position) return;
 	auto rc = GetGlobalRect();
-	int w = int(m_size.x) - 2;
+	int w = rc.w - 2;
 	for (int i = m_chw.size() - 1; i >= 0; i--)
 	{
 		w -= m_chw[i];
@@ -346,18 +413,18 @@ SDL_Rect UITextEdit::getSelectionRect()
 	SDL_Rect rs;
 	{
 		int ow = std::accumulate(m_chw.begin(), m_chw.begin() + m_textoffset, 0);
-		std::string utf8 = getDisplayText();
-		std::string str = std::string(&utf8[selection.start], selection.end - selection.start);
+		std::wstring utf8 = getDisplayText();
+		std::wstring str = std::wstring(&utf8[selection.start], selection.end - selection.start);
 		auto [w, h] = sRender->GetTextSize(str.c_str(), m_fontSize);
 		int w1 = 0, h1 = 0;
 		if (selection.start > 0)
 		{
-			str = std::string(&utf8[0], selection.start);
+			str = std::wstring(&utf8[0], selection.start);
 			auto [cw, ch] = sRender->GetTextSize(str.c_str(), m_fontSize);
 			w1 = cw;
 			h1 = ch;
 		}
-		rs = { rc.x + 4 + w1 - ow, rc.y + (int(m_size.y) - h) / 2, w, h};
+		rs = { rc.x + 4 + w1 - ow, rc.y + (rc.h - h) / 2, w, h };
 	}
 	return rs;
 }
@@ -415,23 +482,23 @@ SDL_Rect UITextEdit::calcCursorRect(int pos)
 		return SDL_Rect{ rc.x - 1 + editing.width, rc.y + 1, 2, LINE_HEIGHT - 2 };
 }
 
-//SDL_Rect UITextEdit::calcImeListRect()
-//{
-//	auto rc = calcCursorRect(cursor.position);
-//	return calcImeListRect(rc);
-//}
+SDL_Rect UITextEdit::calcImeListRect()
+{
+	auto rc = calcCursorRect(cursor.position);
+	return calcImeListRect(rc);
+}
 
-//SDL_Rect UITextEdit::calcImeListRect(const UIRect& rc)
-//{
-//	static int width = 60;
-//	int th = 0, he = 0;
-//	int imesize = (int)(IME_SIZE);
-//	auto& ws = m_ims[0];
-//	auto [w, h] = sRender->GetTextSize(wstring_to_utf8(ws).c_str(), m_fontSize);
-//	he = h;
-//	th = imesize * he;
-//	return { rc.x, rc.y + rc.height, width, th };
-//}
+SDL_Rect UITextEdit::calcImeListRect(const SDL_Rect& rc)
+{
+	static int width = 60;
+	int th = 0, he = 0;
+	int imesize = (int)(IME_SIZE);
+	auto& ws = m_ims[0];
+	auto [w, h] = sRender->GetTextSize(wstring_to_utf8(ws).c_str(), m_fontSize);
+	he = h;
+	th = imesize * he;
+	return { rc.x, rc.y + rc.h, width, th };
+}
 
 void UITextEdit::removeCursorCharater()
 {
@@ -463,7 +530,7 @@ void UITextEdit::replaceSelectionText(const std::string& _utf8)
 
 std::string UITextEdit::getRectText() const
 {
-	int w = (int)m_size.x;
+	int w = m_size.x;
 	int wc = 0;
 	if (IsPassword())
 	{
@@ -487,22 +554,22 @@ std::string UITextEdit::getRectText() const
 	}
 }
 
-std::string UITextEdit::getDisplayText() const
+std::wstring UITextEdit::getDisplayText() const
 {
 	if (IsPassword())
 	{
-		std::string str(m_wtext.size(), '*');
+		std::wstring str(m_wtext.size(), '*');
 		return str;
 	}
 	else
 	{
-		return wstring_to_utf8(m_wtext);
+		return (m_wtext);
 	}
 }
 
 bool UITextEdit::isCursorRight() const
 {
-	int w = (int)m_size.x;
+	int w = m_size.x;
 	if (m_wtext.size() == cursor.position) return true;
 	int cw = std::accumulate(m_chw.begin() + m_textoffset, m_chw.begin() + cursor.position + 1, 0);
 	if (cw > w)

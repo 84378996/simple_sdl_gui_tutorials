@@ -1,5 +1,6 @@
 #include "SceneManager.h"
 #include "SceneBase.h"
+#include "UITextEdit.h"
 #include <chrono>
 #include <thread>
 
@@ -42,6 +43,14 @@ void SceneManager::Run(SceneBase* s)
 		{
 			NewFrame _{};
 			m_currentScene->Render();
+
+			if (auto uicontrol = m_currentScene->GetFocusedControl())
+			{
+				if (auto _tb = dynamic_cast<UITextEdit*>(uicontrol))
+				{
+					_tb->DrawImgList();
+				}
+			}
 		}
 
 

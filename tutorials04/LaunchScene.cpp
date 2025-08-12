@@ -6,6 +6,16 @@
 
 bool LaunchScene::init()
 {
+    auto lb = std::shared_ptr<UILabel>(new UILabel("NickName"));
+    lb->SetPosition({ 100,170 });
+    lb->SetSize({ 80, 25 });
+    AddNode(lb);
+
+    auto tbnick = std::shared_ptr<UITextEdit>(new UITextEdit);
+    tbnick->SetPosition({ 190, 170 });
+    tbnick->SetSize({ 120,25 });
+    AddNode(tbnick);
+
     m_lb = std::shared_ptr<UILabel>(new UILabel("UserName"));
     m_lb->SetPosition({ 100,200 });
     m_lb->SetSize({ 80, 25 });
@@ -16,12 +26,10 @@ bool LaunchScene::init()
     tb->SetSize({120,25});
     AddNode(tb);
 
-    auto lb = std::shared_ptr<UILabel>(new UILabel("Password"));
+    lb = std::shared_ptr<UILabel>(new UILabel("Password"));
     lb->SetPosition({ 100,230 });
     lb->SetSize({ 80, 25 });
     AddNode(lb);
-
-
 
     auto pwd = std::shared_ptr<UITextEdit>(new UITextEdit);
     pwd->SetPosition({ 190, 230 });
@@ -34,22 +42,9 @@ bool LaunchScene::init()
     m_btn->SetText("Login");
     m_btn->AddClick([=](void*) 
         {
-            auto username = tb->GetText();
-            auto password = pwd->GetText();
-            if (username.empty())
-            {
-                m_lbmsg->SetText("Username cannot be empty");
-                return;
-            }
-
-            if (password.empty())
-            {
-                m_lbmsg->SetText("Password cannot be empty");
-                return;
-            }
-
+            auto nickname = tbnick->GetText();
             char szmsg[64];
-            sprintf_s(szmsg, "Username is: %s, and the password is: %s", username.c_str(), password.c_str());
+            sprintf_s(szmsg, "Nickname is: %s", nickname.c_str());
             m_lbmsg->SetText(szmsg);
         });
     AddNode(m_btn);
